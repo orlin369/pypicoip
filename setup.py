@@ -77,7 +77,7 @@ setup(
     long_description_content_type='text/markdown',
     author=__author__,
     license=__license__,
-    author_email=__email__,
+    # author_email=__email__,
     python_requires='>=3.7',
     install_requires=install_requires,
     setup_requires=[],
