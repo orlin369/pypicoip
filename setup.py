@@ -32,7 +32,7 @@ SOFTWARE.
 __author__ = "Orlin Dimitrov"
 """Author of the file."""
 
-__copyright__ = "Copyright 2020, Orlin Dimitrov"
+__copyright__ = "Copyright 2024, Orlin Dimitrov"
 """Copyright holder"""
 
 __credits__ = []
