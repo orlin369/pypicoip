@@ -2,6 +2,8 @@
 A python library for communicating with PicoIP
 
 
+[PicoIP](https://lan.neomontana-bg.com/doc/pdf/PicoIP-Bg.pdf)
+
 ```sh
 python -m pip install --upgrade git+https://github.com/orlin369/pypicoip.git#egg=pypicoip
 ```
