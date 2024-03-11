@@ -5,7 +5,7 @@
 
 MIT License
 
-Copyright (c) [2023] [Orlin Dimitrov]
+Copyright (c) [2024] [Orlin Dimitrov]
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -27,12 +27,19 @@ SOFTWARE.
 
 """
 
+import re
+import time
+from urllib.parse import urlparse
+
+import requests
+from requests.auth import HTTPBasicAuth
+
 #region File Attributes
 
 __author__ = "Orlin Dimitrov"
 """Author of the file."""
 
-__copyright__ = "Copyright 2020, Orlin Dimitrov"
+__copyright__ = "Copyright 2024, Orlin Dimitrov"
 """Copyright holder"""
 
 __credits__ = []
@@ -53,13 +60,7 @@ __status__ = "Debug"
 
 #endregion
 
-import time
-import json
-from urllib.parse import urlparse
-
-import requests
-
-class PicoIP():
+class PicoIP:
 
 #region Properties
 
@@ -124,27 +125,49 @@ class PicoIP():
 
     def __init__(self, **kwargs):
 
-        __user = None
-        """Username
+        self.__user = None
+        """Username of device.
         """
 
-        __password = None
-        """Password
+        self.__password = None
+        """Password of device.
         """
 
-        __host = "127.0.0.1"
-        """Host address.
+        self.__host = "172.16.100.2"
+        """Host address of device.
         """
 
-        __timeout = 5
+        self.__timeout = 5
         """Communication timeout.
         """
 
-        __last_sync = 0
+        self.__last_sync = 0
         """Last sync time.
         """
 
-        __api_get_inputs = "/inputs"
+        self.__api_get_io_state = "/ioreg.js"
+        """APi get IO state.
+        """
+
+        self.__api_set_io_state = "/iochange.cgi"
+        """API set IO state.
+        """
+
+        self.__port_p3 = 0
+        """Port P3 state.
+        """
+
+        self.__port_p5 = 0
+        """Port P5 state.
+        """
+
+        self.__port_p6 = 0
+        """Port P6 state.
+        """
+
+        self.__adc = []
+        """Port P6 ADC state.
+        """
 
         # Username
         if "user" in kwargs:
@@ -180,11 +203,20 @@ class PicoIP():
             if host == "":
                 raise ValueError("Host name can not be empty string.")
 
-            if not self.__url_validate(host):
+            if self.__url_validate(host):
+                pass
+
+            elif self.__parse_ipv4_address(host):
+                pass
+
+            else:
                 raise ValueError(f"Invalid host name: {host}")
 
             if host.endswith("/"):
                 host = host[:-1]
+
+            if not host.startswith("http://"):
+                host = "http://" + host
 
             self.__host = host
 
@@ -206,32 +238,92 @@ class PicoIP():
 
 #endregion
 
-#region Private Methods
+#region Implementation of With
 
-    def __url_validate(self, x):
-        try:
-            result = urlparse(x)
-            return all([result.scheme, result.netloc])
+    def __enter__(self):
+        return self
 
-        except:
-            return False
+    def __exit__(self, exception_type, exception_value, exception_traceback):
+        pass
 
 #endregion
 
-#region Public Methods
+#region Private Methods
 
-    def get_inputs(self):
+    def __parse_ipv4_address(self, ip_string):
+        # Regular expression pattern for matching IPv4 addresses
+        ipv4_pattern = r"(\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b)"
 
-        response_registers = None
+        # Match the pattern in the input string
+        match = re.search(ipv4_pattern, ip_string)
+
+        if match:
+            return match.group(0)  # Return the matched IPv4 address
+        else:
+            return None  # Return None if no match is found
+
+    def __url_validate(self, x):
+        ret_val = False
+
+        try:
+            result = urlparse(x)
+            ret_val = all([result.scheme, result.netloc])
+
+        except:
+            ret_val = False
+
+        return ret_val
+
+    def __get_bit(self, number, bit_index):
+        """
+        Get the value of a specific bit in an integer.
+
+        Parameters:
+            number (int): The integer from which to extract the bit.
+            bit_index (int): The index of the bit to retrieve (0-based index from the right).
+
+        Returns:
+            int: The value of the specified bit (0 or 1).
+        """
+        mask = 1 << bit_index  # Create a mask with the desired bit set to 1
+        bit_value = (number & mask) >> bit_index  # Extract the specified bit
+
+        return bit_value
+
+    def __set_bit(self, number, bit_index, bit_value):
+        """
+        Set a specific bit of an integer to a specified value.
+
+        Parameters:
+            number (int): The integer whose bit needs to be set.
+            bit_index (int): The index of the bit to set (0-based index from the right).
+            bit_value (int): The value to set the bit to (0 or 1).
+
+        Returns:
+            int: The modified integer with the specified bit set.
+        """
+        if bit_value not in (0, 1):
+            raise ValueError("Bit value must be either 0 or 1")
+
+        mask = 1 << bit_index  # Create a mask with the desired bit set to 1
+        if bit_value == 1:
+            number |= mask  # Set the bit to 1
+        else:
+            number &= ~mask  # Set the bit to 0
+
+        return number
+
+    def __update_inputs_state(self):
 
         # URI
-        uri = self.host + self.__api_get_inputs
+        # http://172.16.100.2/ioreg.js
+        uri = self.host + self.__api_get_io_state
 
-        # Headers
-        headers = {"Accept": "application/json"}
+        # Set basic authentication.
+        basic = HTTPBasicAuth(self.__user, self.__password)
 
         # The request.
-        response = requests.get(uri, headers={}, data={}, timeout=self.timeout)
+        response = requests.get(uri, auth=basic, headers={}, data={}, timeout=self.timeout)
 
         if response is not None:
 
@@ -240,25 +332,183 @@ class PicoIP():
 
                 if response.text != "":
 
-                    response_registers = json.loads(response.text)
+                    # Copy data.
+                    temp_data = response.text
+
+                    # Remove unused string.
+                    temp_data = temp_data.replace("var IO=new Array ", "")
+                    temp_data = temp_data.replace("var IS=new Array ", "")
+                    temp_data = temp_data.replace("var N=new Array ", "")
+                    temp_data = temp_data.replace("(", "")
+                    temp_data = temp_data.replace(")", "")
+
+                    # Split by lines.
+                    temp_data=temp_data.split("\r\n")
+
+                    # Split by comma.
+                    temp_data=temp_data[0].split(",")
+
+                    # Update IO data.
+                    self.__port_p3 = int(temp_data[0], base=16)
+                    self.__port_p5 = int(temp_data[1], base=16)
+                    self.__port_p6 = int(temp_data[2], base=16)
+
+                    # Update ADC data.
+                    self.__adc.clear()
+                    for item in temp_data[3:11:1]:
+                        self.__adc.append(int(item, 16))
 
                     # Update last successful time.
                     self.__last_sync = time.time()
 
-            else:
-                response_registers = None
+    def __update_outputs_state(self):
 
-        else:
-            response_registers = None
+        # URI
+        # http://172.16.100.2/iochange.cgi?ref=re-io&01=01&02=F0
+        uri = self.host + self.__api_set_io_state
 
-        return response_registers
+        # Set basic authentication.
+        basic = HTTPBasicAuth(self.__user, self.__password)
 
-    def get_outputs(self):
+        # Set arguments.
+        params = {"ref":"re-io", "01": f"{self.__port_p3:02X}", "02": f"{self.__port_p5:02X}"}
 
-        pass
+        # The request.
+        response = requests.get(uri, auth=basic, headers={}, data={}, params=params, timeout=self.timeout)
 
-    def set_outputs(self, state):
+        if response is not None:
 
-        pass
+            # OK
+            if response.status_code == 200:
+
+                # Update last successful time.
+                self.__last_sync = time.time()
+
+#endregion
+
+#region Public Methods
+
+    def get_p3(self):
+        """Get port P3 state.
+
+        Returns:
+            int: Port P3 state.
+        """
+        self.__update_inputs_state()
+        return self.__port_p3
+
+    def get_p5(self):
+        """Get port P5 state.
+
+        Returns:
+            int: Port P5 state.
+        """
+        self.__update_inputs_state()
+        return self.__port_p5
+
+    def get_p6(self):
+        """Get port P6 state.
+
+        Returns:
+            int: Port P6 state.
+        """
+        self.__update_inputs_state()
+        return self.__port_p6
+
+    def get_adc(self):
+        """Get port P6 ADC stets.
+
+        Returns:
+            int: Port P6 ADC states.
+        """
+        self.__update_inputs_state()
+        return self.__adc
+
+    def set_p3(self, value: int):
+        """Set port P3 state.
+
+        Args:
+            value (int): Value of the P3. 
+        """
+        if value < 0:
+            return
+
+        if value > 255:
+            return
+
+        self.__port_p3 = value
+        self.__update_outputs_state()
+
+    def set_p5(self, value: int):
+        """Set port P5 state.
+
+        Args:
+            value (int): Value of the P5. 
+        """
+        if value < 0:
+            return
+
+        if value > 255:
+            return
+
+        self.__port_p5 = value
+        self.__update_outputs_state()
+
+    def digitalRead(self, index: int):
+        """Digital read from particular pin.
+
+        Args:
+            index (int): Pin index.
+
+        Returns:
+            int: Specified pin state.
+        """
+        self.__update_inputs_state()
+
+        state = 0
+
+        if 0 <= index <= 7:
+            state = self.__get_bit(self.__port_p3, index)
+
+        elif 8 <= index <= 15:
+            state = self.__get_bit(self.__port_p5, index)
+
+        elif 16 <= index <= 23:
+            state = self.__get_bit(self.__port_p6, index)
+
+        return state
+
+    def analogRead(self, index: int):
+        """Analog read from particular pin.
+
+        Args:
+            index (int): Pin index.
+
+        Returns:
+            int: Specified pin state.
+        """
+        self.__update_inputs_state()
+
+        state = False
+
+        if 0 <= index <= 7:
+            state = self.__adc[index]
+
+        return state
+
+    def digitalWrite(self, index: int, value: bool):
+        """Digital write to particular pin.
+
+        Args:
+            index (int): Pin index.
+            value (int): Pin value.
+        """
+        if 0 <= index <= 7:
+            self.__port_p3 = self.__set_bit(self.__port_p3, index, value*1)
+
+        elif 8 <= index <= 15:
+            self.__port_p5 = self.__set_bit(self.__port_p5, index, value*1)
+
+        self.__update_outputs_state()
 
 #endregion
