@@ -7,7 +7,10 @@ The library is dedicated to communicate with PicoIP device via HTTP interface.
 Main goal to create this library is to make this device to be part of home automation and small automation projects written mainly in python.
 
 This is the documentation of the device with version (4.094)
-[PicoIP](https://lan.neomontana-bg.com/doc/pdf/PicoIP-Bg.pdf)
+[PicoIP v1](https://lan.neomontana-bg.com/picoip.php)
+
+This is the documentation of the device with version (2.2)
+[PicoIP v2](https://lan.neomontana-bg.com/picoipv2.php)
 
 Red this document to understand how device is operating.
 
