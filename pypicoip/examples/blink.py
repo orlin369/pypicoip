@@ -90,7 +90,7 @@ def main():
     state = 0
 
     # Create PicoIP object.
-    with PicoIP(host="172.33.4.158", user="admin", password="admin") as client:
+    with PicoIP(host="172.16.100.2", user="admin", password="admin") as client:
 
         # Run the while loop.
         while True:
