@@ -126,3 +126,21 @@ Set port P3 to 255 and port P5 to 255.
 python -m pypicoip --host http://172.16.100.2 --user admin --password admin --p3 255 --p5 255
 [255, 255, 0, 86, 100, 153, 456, 526, 403, 355, 156]
 ```
+
+# Contributing
+
+If you'd like to contribute to this project, please follow these steps:
+
+1. Fork the repository on GitHub.
+2. Clone your forked repository to your local machine.
+3. Create a new branch for your changes: `git checkout -b my-new-feature`.
+4. Make your modifications and write tests if applicable.
+5. Commit your changes: `git commit -am 'Add some feature'`.
+6. Push the branch to your forked repository: `git push origin my-new-feature`.
+7. Create a pull request on the main repository.
+
+We appreciate your contributions!
+
+# License
+
+This project is licensed under the MIT License. See the [MIT](https://choosealicense.com/licenses/mit/) file for more details.
